@@ -1,4 +1,4 @@
-import mqtt from 'mqtt'
+import axios from 'axios'
 
 const socketIO = require('socket.io')
 
@@ -17,46 +17,31 @@ function connect(server) {
         })
     })
 
-    const options = {
-        clientId: process.env.MQTT_CLIENT_SRV,
-        username: 'digitalOceanServer',
-        password: ''
-      }
-      
-    const connectUrl = process.env.URL_MQTT
-    const client = mqtt.connect(connectUrl, options)
-    client.on('connect', () => {
-    // console.log('Client connected by SERVER:')
-    // Subscribe
-    client.subscribe(process.env.TOPIC_MQTT_SENSOR, { qos: 0 })
-    })
-    
-    let sensors = []
-    let datasFiltered = []
-      
-    client.on('message', async (topic, message) => {
-        const data = JSON.parse(message.toString())
-        data.createdAt = new Date()
-        sensors.push(data)
-        if (sensors.length > 10) {
-            // reverse sensors
-            // borrar ultimo dato
-            sensors.shift()
-        }
-        if (sensors) {
-            datasFiltered = sensors.reverse().filter((elem, index, self) => {
-                return self.map(item => item.nm.toString()).indexOf(elem.nm.toString()) === index
-            })
-        }
-    })
+    setInterval(async () => {
+        axios.get(`${process.env.URL_SERVER_FLASK}/api/v1/trips`)
+        .then(res => {
+            const trips = res.data.trips
+            for (let i in USERS) {
+                USERS[i].emit('trips', trips)
+            }
+        })
+        .catch(err => {
+            console.log(err)
+        })
+    }, 300000)
 
     setInterval(async () => {
-        // for (let i in USERS) {
-        //     USERS[i].emit('ratio', {
-        //         ratioData
-        //     })
-        // }
-    }, 10000)
+        axios.get(`${process.env.URL_SERVER_FLASK}/api/v1/lastweek`)
+        .then(res => {
+            const lastweek = res.data.lastweek
+            for (let i in USERS) {
+                USERS[i].emit('lastweek', lastweek)
+            }
+        })
+        .catch(err => {
+            console.log(err)
+        })
+    }, 60000)
 }
 
 module.exports = {
